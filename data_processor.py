@@ -16,6 +16,12 @@ class DataProcessor:
         self.df = pd.concat([self.df, log_returns], axis=1)
 
     def check_na(self, ticker):
+        # Xem lại hàm này
+        # self.tickers: level 1 của columns 
+        # nhưng lại dùng làm chỉ số level 0?
+        # print(f"\nTicker: {ticker}")
+        # for col in self.tickers:
+        #     print(f"{col} : {self.df[col, ticker].isna().sum()}")
         for col in self.df.columns.levels[0]:
             na_count = self.df[(col, ticker)].isna().sum()
             print(f"{col} : {na_count}")
@@ -24,22 +30,6 @@ class DataProcessor:
     def drop_na(self):
         self.df = self.df.dropna()
          
-    def add_missing_dates(self):
-        # Business days
-        expected_dates = pd.date_range(start=self.df.index.min(), 
-                                       end=self.df.index.max(),
-                                       freq='B')        # 'B' = business days
-
-        # Find missing dates 
-        missing_dates = expected_dates.difference(self.df.index)
-        print(f"Số lượng missing dates: {len(missing_dates)}")
-        print("Missing dates:\n", missing_dates)
-
-        # Fill data 
-        # Reindex để thêm các ngày bị thiếu
-        self.df = self.df.reindex(expected_dates)
-        # Lấy data ngày trước đó để điền vào các ngày bị thiếu
-        self.df = self.df.ffill()
         
     def detect_outliers(self, ticker, col):
         series = self.df[(col, ticker)]
@@ -68,8 +58,7 @@ class DataProcessor:
         plt.title(f"Return of {ticker}")
         plt.show()
 
-    def winsorize_data(self): 
-        self.df = self.df.dropna()
+    def winsorize_data(self):
         for ticker in self.tickers:
             # Xử lý Log Return
             if ('Log Return', ticker) in self.df.columns:
@@ -88,5 +77,4 @@ class DataProcessor:
                     self.df.loc[mask_valid, ('Volume', ticker)] = winsorize(data_valid, limits=[0.01, 0.01])
     
     def save_cleaned_data(self, output_file):
-
         self.df.to_csv(output_file)

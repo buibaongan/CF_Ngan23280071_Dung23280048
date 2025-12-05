@@ -54,7 +54,7 @@ class TradingStrategy:
         upper_df   = create_df(upper_band, 'BB_Upper')
         lower_df   = create_df(lower_band, 'BB_Lower')
 
-        cols_to_drop = ['Signal', 'BB_Mean', 'BB_Upper', 'BB_Lower', 'Signal']
+        cols_to_drop = ['Signal', 'BB_Mean', 'BB_Upper', 'BB_Lower']
         existing_cols = [c for c in cols_to_drop if c in self.df.columns.get_level_values(0)]
         if existing_cols:
             self.df = self.df.drop(columns=existing_cols, level=0)
