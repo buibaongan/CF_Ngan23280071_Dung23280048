@@ -16,12 +16,6 @@ class DataProcessor:
         self.df = pd.concat([self.df, log_returns], axis=1)
 
     def check_na(self, ticker):
-        # Xem lại hàm này
-        # self.tickers: level 1 của columns 
-        # nhưng lại dùng làm chỉ số level 0?
-        # print(f"\nTicker: {ticker}")
-        # for col in self.tickers:
-        #     print(f"{col} : {self.df[col, ticker].isna().sum()}")
         for col in self.df.columns.levels[0]:
             na_count = self.df[(col, ticker)].isna().sum()
             print(f"{col} : {na_count}")
@@ -83,7 +77,7 @@ class DataProcessor:
                 mask_valid = ~log_returns.isna()        # Lọc bỏ NaN
                 data_valid = log_returns[mask_valid]
                 if len(data_valid) > 0:
-                    self.df.loc[mask_valid, ('Log Return', ticker)] = winsorize(data_valid, limits=[0.05, 0.05])
+                    self.df.loc[mask_valid, ('Log Return', ticker)] = winsorize(data_valid, limits=[0.01, 0.01])
             
             # Xử lý Volume
             if ('Volume', ticker) in self.df.columns:
@@ -94,4 +88,5 @@ class DataProcessor:
                     self.df.loc[mask_valid, ('Volume', ticker)] = winsorize(data_valid, limits=[0.01, 0.01])
     
     def save_cleaned_data(self, output_file):
+
         self.df.to_csv(output_file)
