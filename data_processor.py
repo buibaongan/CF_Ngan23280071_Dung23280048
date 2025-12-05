@@ -16,20 +16,12 @@ class DataProcessor:
         self.df = pd.concat([self.df, log_returns], axis=1)
 
     def check_na(self, ticker):
-        # Xem lại hàm này
-        # self.tickers: level 1 của columns 
-        # nhưng lại dùng làm chỉ số level 0?
-        # print(f"\nTicker: {ticker}")
-        # for col in self.tickers:
-        #     print(f"{col} : {self.df[col, ticker].isna().sum()}")
         for col in self.df.columns.levels[0]:
             na_count = self.df[(col, ticker)].isna().sum()
             print(f"{col} : {na_count}")
-        
     
     def drop_na(self):
         self.df = self.df.dropna()
-         
         
     def detect_outliers(self, ticker, col):
         series = self.df[(col, ticker)]
