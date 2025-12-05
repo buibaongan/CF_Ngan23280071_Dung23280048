@@ -1,6 +1,5 @@
 import yfinance as yf
 import pandas as pd
-import numpy as np
 
 class MarketData:
     def __init__(self, tickers):
@@ -27,4 +26,5 @@ class MarketData:
         """
         # header=[0,1]: 2 dòng đầu tạo MultiIndex cột
         # index_col=0: cột Date làm index
+
         self.df = pd.read_csv(filename, header=[0, 1], index_col=0, parse_dates=True)
