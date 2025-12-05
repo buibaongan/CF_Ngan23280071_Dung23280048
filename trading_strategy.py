@@ -24,8 +24,8 @@ class TradingStrategy:
         if 'Signal' in self.df.columns:
             self.df = self.df.drop(columns=['Signal'])
         self.df = pd.concat([self.df, signals_df], axis=1)
-        
-
+    
+    
     def mean_reversion_signal(self, window=20, num_std=2):
         """
         MEAN REVERSION (BOLLINGER BANDS)
@@ -45,12 +45,22 @@ class TradingStrategy:
         signals = np.where(adj_close < lower_band, 1, 
                            np.where(adj_close > upper_band, -1, 0))
         
-        signals_df = pd.DataFrame(signals, index=self.df.index, columns=self.tickers)
-        signals_df.columns = pd.MultiIndex.from_product([['Signal'], self.tickers])
-        
-        if 'Signal' in self.df.columns:
-            self.df = self.df.drop(columns=['Signal'])
-        self.df = pd.concat([self.df, signals_df], axis=1)
+        def create_df(data, name):
+            df = pd.DataFrame(data, index=self.df.index, columns=self.tickers)
+            df.columns = pd.MultiIndex.from_product([[name], self.tickers])
+            return df
+
+        signals_df = create_df(signals, 'Signal')
+        mean_df    = create_df(rolling_mean, 'BB_Mean')
+        upper_df   = create_df(upper_band, 'BB_Upper')
+        lower_df   = create_df(lower_band, 'BB_Lower')
+
+        cols_to_drop = ['Signal', 'BB_Mean', 'BB_Upper', 'BB_Lower']
+        existing_cols = [c for c in cols_to_drop if c in self.df.columns.get_level_values(0)]
+        if existing_cols:
+            self.df = self.df.drop(columns=existing_cols, level=0)
+
+        self.df = pd.concat([self.df, mean_df, upper_df, lower_df, signals_df], axis=1)
 
 
     def apply_position_sizing(self, total_capital=100000, risk_per_trade=0.01):
@@ -59,18 +69,18 @@ class TradingStrategy:
         Công thức: Size = Risk / (Volatility * Price) * Signal
         """ 
         risk_amount = total_capital * risk_per_trade
-        price = self.df['Adj Close']
-        sigma = self.df['Volatility']
-        signal = self.df['Signal']
+        pre_price = self.df['Adj Close'].shift(1)
+        pre_sigma = self.df['Volatility'].shift(1)
+        pre_signal = self.df['Signal'].shift(1)
 
         # Tính số lượng cổ phiếu lý thuyết
-        raw_size = risk_amount / (price * sigma).replace(0, np.nan)
+        raw_size = risk_amount / (pre_price * pre_sigma).replace(0, np.nan)
         # Xử lý chia cho 0 hoặc NaN
         raw_size = raw_size.replace([np.inf, -np.inf], 0).fillna(0)
         
         # Áp dụng Signal
         # Làm tròn xuống (Số lượng cổ phiếu phải là số nguyên)
-        final_position = (raw_size * signal).astype(int)
+        final_position = (raw_size * pre_signal).astype(int)
 
         final_position.columns = pd.MultiIndex.from_product([['Position Size'], self.tickers])
         
@@ -78,6 +88,41 @@ class TradingStrategy:
             self.df = self.df.drop(columns=['Position Size'])
         self.df = pd.concat([self.df, final_position], axis=1)
 
+
+    def get_actions(self, date_str=None):
+        """
+        Danh sách các lệnh cần thực hiện.
+        """
+        target_date = self.get_target_date(date_str)
+        actions = []
+        
+        current_idx = self.df.index.get_loc(target_date)
+        if current_idx == 0:        # Ngày đầu tiên, không có dữ liệu trước đó
+            return pd.DataFrame()
+        
+        pre_date = self.df.index[current_idx - 1]
+        
+        for ticker in self.tickers:
+            target_shares = self.df.loc[target_date, ('Position Size', ticker)]
+            current_shares = self.df.loc[pre_date, ('Position Size', ticker)]
+            delta = target_shares - current_shares
+            
+            if delta != 0:
+                price_est = self.df.loc[pre_date, ('Adj Close', ticker)]
+                actions.append({
+                    'Ticker': ticker,
+                    'Action': 'BUY' if delta > 0 else 'SELL',
+                    'Shares': int(abs(delta)),
+                    'Price_Est': price_est,
+                    'Value_Est': abs(delta) * price_est
+                })
+        
+        if not actions:
+            return pd.DataFrame()
+        
+        return pd.DataFrame(actions)   
+    
+    
     def get_target_date(self, date_str=None):
         # Xác định ngày cần tìm kiếm
         if date_str is None:
@@ -134,8 +179,7 @@ class TradingStrategy:
         
     def get_top_portfolio(self, date_str=None, top_n=5):
         """
-        Top N mã tốt nhất để LONG
-        Top N mã tốt nhất để SHORT
+        Top N mã Long và Short có quy mô vốn lớn nhất trong danh mục.
         """
         df_full = self.get_portfolio_at_date(date_str)
         if df_full.empty:
@@ -148,8 +192,3 @@ class TradingStrategy:
         top_short = df_full[df_full['Action'] == 'SHORT'].head(top_n)
         top_portfolio = pd.concat([top_long, top_short]).reset_index(drop=True)
         return top_portfolio
-        
-        
-
-
-    
