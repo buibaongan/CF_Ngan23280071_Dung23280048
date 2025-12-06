@@ -64,8 +64,26 @@ class Plot:
                 sell_signals = self.df.index[self.df['Signal'][ticker] == -1]
                 plt.scatter(buy_signals, self.df['Adj Close'][ticker][buy_signals], marker='^', color='green')
 
-    def plot_porfolio(self, portfolio, name):
-        plt.figure(figsize=(8, 8))
-        plt.pie(portfolio['Value'], labels=portfolio['Ticker'], autopct='%1.1f%%')
-        plt.title(name)
+    def plot_porfolio(self, long_df, short_df, name):
+        top10_long = long_df[["Ticker", "Value"]].head(10)
+        top10_short = short_df[["Ticker", "Value"]].head(10)
+        
+        others_long = long_df["Value"].iloc[10:].sum()
+        others_short = short_df["Value"].iloc[10:].sum()
+
+        top10_long.loc[len(top10_long)] = ["Others", others_long]
+
+        top10_short.loc[len(top10_short)] = ["Others", others_short]
+
+
+        fig, axes = plt.subplots(1, 2, figsize=(16, 7))
+
+        axes[0].pie(top10_long["Value"], labels=top10_long["Ticker"], autopct='%1.1f%%')
+        axes[0].set_title("Long Portfolio")
+
+        # Short
+        axes[1].pie(top10_short["Value"], labels=top10_short["Ticker"], autopct='%1.1f%%')
+        axes[1].set_title("Short Portfolio")
+
+        plt.suptitle(f"Portfolio Allocation - {name}")
         plt.show()

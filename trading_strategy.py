@@ -179,7 +179,7 @@ class TradingStrategy:
             return pd.DataFrame()       # Nếu không giao dịch
         
         
-    def get_top_portfolio(self, date_str=None, top_n=5):
+    def get_portfolio(self, date_str=None, top_n=5):
         """
         Top N mã Long và Short có quy mô vốn lớn nhất trong danh mục.
         """
@@ -189,10 +189,8 @@ class TradingStrategy:
             return pd.DataFrame()
         
         print(f"Ngày giao dịch: {self.get_target_date(date_str).date()}")
+    
+        long_df = df_full[df_full['Action'] == 'LONG']
         
-        
-        # Lấy top N Long và Short
-        top_long = df_full[df_full['Action'] == 'LONG']
-        
-        top_short = df_full[df_full['Action'] == 'SHORT']
-        return top_long, top_short
+        short_df = df_full[df_full['Action'] == 'SHORT']
+        return long_df, short_df
