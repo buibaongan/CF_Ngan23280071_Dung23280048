@@ -80,7 +80,7 @@ class TradingStrategy:
         
         # Áp dụng Signal
         # Làm tròn xuống (Số lượng cổ phiếu phải là số nguyên)
-        final_position = (raw_size * pre_signal).astype(int)
+        final_position = (raw_size * pre_signal).fillna(0).astype(int)
 
         final_position.columns = pd.MultiIndex.from_product([['Position Size'], self.tickers])
         
@@ -116,6 +116,8 @@ class TradingStrategy:
                     'Price_Est': price_est,
                     'Value_Est': abs(delta) * price_est
                 })
+                
+        print(f"Ngày giao dịch: {self.get_target_date(date_str).date()}")
         
         if not actions:
             return pd.DataFrame()
@@ -187,8 +189,10 @@ class TradingStrategy:
             return pd.DataFrame()
         
         print(f"Ngày giao dịch: {self.get_target_date(date_str).date()}")
+        
+        
         # Lấy top N Long và Short
-        top_long = df_full[df_full['Action'] == 'LONG'].head(top_n)
-        top_short = df_full[df_full['Action'] == 'SHORT'].head(top_n)
-        top_portfolio = pd.concat([top_long, top_short]).reset_index(drop=True)
-        return top_portfolio
+        top_long = df_full[df_full['Action'] == 'LONG']
+        
+        top_short = df_full[df_full['Action'] == 'SHORT']
+        return top_long, top_short
