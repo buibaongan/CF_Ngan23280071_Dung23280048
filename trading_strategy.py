@@ -181,7 +181,7 @@ class TradingStrategy:
         
     def get_portfolio(self, date_str=None, top_n=5):
         """
-        Top N mã Long và Short có quy mô vốn lớn nhất trong danh mục.
+        Long và Short trong danh mục.
         """
         df_full = self.get_portfolio_at_date(date_str)
         if df_full.empty:
@@ -193,4 +193,5 @@ class TradingStrategy:
         long_df = df_full[df_full['Action'] == 'LONG']
         
         short_df = df_full[df_full['Action'] == 'SHORT']
+
         return long_df, short_df
