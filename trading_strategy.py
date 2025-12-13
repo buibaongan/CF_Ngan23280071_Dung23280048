@@ -10,8 +10,8 @@ class TradingStrategy:
     def momentum_signal(self, threshold=0.01):
         """
         MOMENTUM:
-            Giá > SMA_50 * (1 + threshold) => Xu hướng tăng => Mua (Long)
-            Giá < SMA_50 * (1 - threshold) => Xu hướng giảm => Bán (Short)
+            Giá > SMA_50 * (1 + threshold) => Xu hướng tăng => Mua
+            Giá < SMA_50 * (1 - threshold) => Xu hướng giảm => Bán
         """
         adj_close = self.df['Adj Close']
         sma_50 = self.df['SMA_50']
@@ -202,3 +202,4 @@ class TradingStrategy:
         short_df = df_full[df_full['Action'] == 'SHORT']
 
         return long_df, short_df
+
