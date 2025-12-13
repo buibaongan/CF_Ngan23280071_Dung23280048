@@ -7,18 +7,24 @@ class TradingStrategy:
         self.df = self.df.sort_index(axis=1)
         self.tickers = self.df['Adj Close'].columns
 
-    def momentum_signal(self):
+    def momentum_signal(self, threshold=0.01):
         """
         MOMENTUM:
-            Giá > SMA_50 => Xu hướng tăng => Mua (Long)
-            Giá < SMA_50 => Xu hướng giảm => Bán (Short)
+            Giá > SMA_50 * (1 + threshold) => Xu hướng tăng => Mua (Long)
+            Giá < SMA_50 * (1 - threshold) => Xu hướng giảm => Bán (Short)
         """
         adj_close = self.df['Adj Close']
         sma_50 = self.df['SMA_50']
+        
+        upper_bound = sma_50 * (1 + threshold)
+        lower_bound = sma_50 * (1 - threshold)
 
-        signals = np.where(adj_close > sma_50, 1, -1)
+        signals = np.where(adj_close > upper_bound, 1, 
+                           np.where(adj_close < lower_bound, -1, np.nan))
         
         signals_df = pd.DataFrame(signals, index=self.df.index, columns=self.tickers)
+        signals_df = signals_df.fillna(method='ffill').fillna(0)
+        
         signals_df.columns = pd.MultiIndex.from_product([['Signal'], self.tickers])
         
         if 'Signal' in self.df.columns:
@@ -31,7 +37,6 @@ class TradingStrategy:
         MEAN REVERSION (BOLLINGER BANDS)
             Mua khi giá < Lower Band    (1)
             Bán khi giá > Upper Band    (-1)
-            Giữ nguyên khi giá ở giữa   (0)
         """
         adj_close = self.df['Adj Close']
         
@@ -43,7 +48,7 @@ class TradingStrategy:
         lower_band = rolling_mean - (rolling_std * num_std)
 
         signals = np.where(adj_close < lower_band, 1, 
-                           np.where(adj_close > upper_band, -1, 0))
+                           np.where(adj_close > upper_band, -1, np.nan))
         
         def create_df(data, name):
             df = pd.DataFrame(data, index=self.df.index, columns=self.tickers)
@@ -51,6 +56,8 @@ class TradingStrategy:
             return df
 
         signals_df = create_df(signals, 'Signal')
+        signals_df = signals_df.fillna(method='ffill').fillna(0)
+        
         mean_df    = create_df(rolling_mean, 'BB_Mean')
         upper_df   = create_df(upper_band, 'BB_Upper')
         lower_df   = create_df(lower_band, 'BB_Lower')
