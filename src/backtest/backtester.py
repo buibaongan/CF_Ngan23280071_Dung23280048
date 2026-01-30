@@ -1,97 +1,94 @@
 import pandas as pd
 import numpy as np
-
+import itertools 
 class Backtester:
     def __init__(self, df, initial_capital=100000, transaction_cost=0.001):
-        """
-        df: DataFrame tổng (chứa Log Return)
-        initial_capital: Vốn ban đầu (Week 9)
-        transaction_cost: Phí giao dịch (Week 9)
-        """
         self.df = df
         self.initial_capital = initial_capital
         self.cost = transaction_cost
 
     def split_data(self, train_end, val_end):
-        """
-        Chia dữ liệu theo Slide:
-        - Training set: Dữ liệu sớm nhất đến cutoff.
-        - Validation set: Dùng để tuning tham số.
-        - Test set: Dữ liệu unseen cuối cùng để đánh giá.
-        """
+        """Chia dữ liệu train/val/test theo thời gian."""
         train_data = self.df.loc[:train_end]
         val_data = self.df.loc[train_end:val_end]
         test_data = self.df.loc[val_end:]
         return train_data, val_data, test_data
 
-    def run_backtest(self, data_segment, signals):
-        """
-        Thực hiện mô phỏng giao dịch (Đã sửa lỗi lệch cột và phí giao dịch)
-        """
-        # 1. Xử lý lệch tầng Index (MultiIndex) từ Strategy
-        # Nếu signals có tầng 'Signal' ở trên, lấy tầng cuối (tên Ticker) để khớp với Log Return
+    def run_backtest(self, data, signals):
+        # 1. Đồng bộ dữ liệu & Index
         if isinstance(signals.columns, pd.MultiIndex):
             signals.columns = signals.columns.get_level_values(-1)
 
-        # 2. Đồng bộ hóa Index (Ngày) giữa dữ liệu và tín hiệu
-        common_index = data_segment.index.intersection(signals.index)
-        data = data_segment.loc[common_index]
-        log_returns = data['Log Return']
+        common_idx = data.index.intersection(signals.index)
+        log_returns = data.loc[common_idx, "Log Return"]
 
-        # 3. Đồng bộ hóa Cột (Ticker) và xử lý dữ liệu thiếu
-        # reindex giúp đảm bảo thứ tự các mã cổ phiếu trong pos khớp hoàn toàn với log_returns
-        pos = signals.loc[common_index].reindex(columns=log_returns.columns).ffill().fillna(0)
+        # 2. Xử lý vị thế (Forward fill & Lọc mã hủy niêm yết)
+        pos = signals.loc[common_idx].reindex(columns=log_returns.columns).ffill().fillna(0)
+        simple_return = np.exp(log_returns) - 1
+        pos = pos.where(~simple_return.isna(), 0)
+
+        # 3. Tính toán Lợi nhuận và chi phí
+        shifted_pos = pos.shift(1).fillna(0) 
+        active_pos = shifted_pos.abs().sum(axis=1).replace(0, np.nan)
         
-        n_tickers = len(pos.columns)
+        # Gross Return
+        gross_return = (shifted_pos * simple_return).sum(axis=1) / active_pos
+        gross_return = gross_return.fillna(0)
+
+        # Transaction cost
+        turnover = pos.diff().abs().sum(axis=1)
+        cost = (turnover / active_pos).fillna(0) * self.cost
+
+        # 4. Equity Curve
+        equity = (1 + gross_return - cost).cumprod() * self.initial_capital
+        return equity
+
+    def evaluate(self, equity):
+        """Tính các chỉ số đánh giá (Sharpe, Drawdown)."""
+        ret = equity.pct_change().dropna()
+        sharpe = (ret.mean() / ret.std() * np.sqrt(252)) if ret.std() > 0 else 0
         
-        # 4. Tính lợi nhuận chiến thuật (Vị thế ngày t-1 * Return ngày t)
-        # Sử dụng shift(1) để tránh look-ahead bias (nhìn trước tương lai)
-        daily_ret = (pos.shift(1) * log_returns).sum(axis=1) / n_tickers
-        
-        # 5. Tính phí giao dịch (Đã sửa logic trọng số)
-        # Phải chia n_tickers vì phí tính trên phần vốn phân bổ cho từng lệnh, không phải tổng vốn
-        trades = pos.diff().abs().sum(axis=1)
-        net_ret = daily_ret - ((trades / n_tickers) * self.cost)
-        
-        # 6. Tính Equity Curve (Lũy kế vốn theo Log Return)
-        return np.exp(net_ret.cumsum()) * self.initial_capital
-    
-    def evaluate(self, equity_curve):
-        """Tính chỉ số Sharpe và Drawdown (Week 5)"""
-        returns_pct = equity_curve.pct_change().dropna()
-        # Sharpe Ratio (Lợi nhuận/Rủi ro) chuẩn hóa 252 ngày
-        sharpe = (returns_pct.mean() / returns_pct.std()) * np.sqrt(252) if returns_pct.std() != 0 else 0
-        
-        # Max Drawdown (Mức sụt giảm lớn nhất)
-        peak = equity_curve.cummax()
-        max_dd = ((equity_curve - peak) / peak).min()
-    
+        peak = equity.cummax()
+        drawdown = ((equity - peak) / peak).min()
+
         return {
-            "Total Return": f"{(equity_curve.iloc[-1]/self.initial_capital)-1:.2%}",
+            "Total Return": f"{equity.iloc[-1]/self.initial_capital - 1:.2%}",
             "Sharpe Ratio": round(sharpe, 2),
-            "Max Drawdown": f"{max_dd:.2%}",
-            "Final Capital": f"${equity_curve.iloc[-1]:,.2f}"
+            "Max Drawdown": f"{drawdown:.2%}",
+            "Final Capital": f"${equity.iloc[-1]:,.0f}"
         }
-        
-    def run_and_evaluate(self, data, strategy_class, label, **params):
-            """Phương thức chạy backtest và trả về metrics"""
-            strategy = strategy_class(data, **params)
-            signals = strategy.generate_signals()
-            equity = self.run_backtest(data, signals)
-            
-            metrics_dict = self.evaluate(equity)
-            metrics_df = pd.DataFrame([metrics_dict], index=[label])
-            return equity, metrics_df
 
-    def find_best_threshold(self, val_df, strategy_class, thresholds):
-        """Phương thức tìm threshold tối ưu trên tập Validation"""
-        best_sharpe = -float('inf')
-        best_t = None
-        for t in thresholds:
-            _, metrics = self.run_and_evaluate(val_df, strategy_class, f"Val_{t}", threshold=t)
-            # Ép kiểu để so sánh
-            current_sharpe = float(metrics.loc[f"Val_{t}", "Sharpe Ratio"])
-            if current_sharpe > best_sharpe:
-                best_sharpe = current_sharpe
-                best_t = t
-        return best_t, best_sharpe
+    def run_and_evaluate(self, data, strategy_cls, label, **params):
+        """Chạy 1 lần backtest."""
+        # Khởi tạo chiến lược với bất kỳ tham số nào được truyền vào (**params)
+        strategy = strategy_cls(data, **params)
+        signals = strategy.generate_signals()
+        
+        equity = self.run_backtest(data, signals)
+        metrics = pd.DataFrame([self.evaluate(equity)], index=[label])
+        return equity, metrics
+
+    def optimize_grid_search(self, data, strategy_cls, param_grid):
+        """
+        Tối ưu hóa ĐA CHIẾN LƯỢC - ĐA THAM SỐ.
+        """
+        results = []
+        
+        # Tạo tất cả các tổ hợp tham số
+        keys, values = zip(*param_grid.items())
+        combinations = [dict(zip(keys, v)) for v in itertools.product(*values)]
+
+        for params in combinations:
+            label_parts = [f"{k}={v}" for k, v in params.items()]
+            label = "_".join(label_parts)
+            
+            # Chạy Backtest với bộ tham số hiện tại
+            _, metrics = self.run_and_evaluate(data, strategy_cls, label, **params)
+            
+            # Kết quả
+            res = metrics.iloc[0].to_dict()
+            res.update(params) 
+            results.append(res)
+        
+        # Trả về bảng kết quả sắp xếp theo Sharpe
+        return pd.DataFrame(results).sort_values(by='Sharpe Ratio', ascending=False)

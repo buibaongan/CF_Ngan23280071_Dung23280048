@@ -11,8 +11,9 @@ class MeanReversionStrategy:
     def generate_signals(self):
         """
         MEAN REVERSION (BOLLINGER BANDS):
-        - Mua: khi giá cắt lên từ phía dưới dải Lower Band
-        - Bán: khi giá cắt xuống từ phía trên dải Upper Band
+        - Long (1): khi giá cắt lên từ phía dưới dải Lower Band
+        - Short (-1): khi giá cắt xuống từ phía trên dải Upper Band
+        - Giữ vị thế (0) trong các trường hợp còn lại
         """
         adj_close = self.df['Adj Close']
         
@@ -28,11 +29,12 @@ class MeanReversionStrategy:
         buy_signal = (prev_adj_close < lower_band) & (adj_close > lower_band)
         sell_signal = (prev_adj_close > upper_band) & (adj_close < upper_band)
         
-        signals = np.where(rolling_std.isna(), np.nan,
-                           np.where(buy_signal, 1, 
-                                    np.where(sell_signal, -1, 0)))
+        signals = pd.DataFrame(np.nan, index=adj_close.index, columns=adj_close.columns)
+        signals[buy_signal] = 1
+        signals[sell_signal] = -1
+        signals = signals.ffill().fillna(0)
         
         signals_df = pd.DataFrame(signals, index=self.df.index, columns=self.tickers)
         signals_df.columns = pd.MultiIndex.from_product([['Signal'], self.tickers])
         
-        return signals
+        return signals_df

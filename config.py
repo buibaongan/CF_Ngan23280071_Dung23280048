@@ -6,10 +6,9 @@ DATA_DIR = os.path.join(BASE_DIR, "data")
 os.makedirs(DATA_DIR, exist_ok=True)
 
 # --- 2. ĐƯỜNG DẪN FILE (FULL PATH) ---
-RAW_DATA_PATH = os.path.join(DATA_DIR, "price_volume_raw.csv")
-CLEANED_DATA_PATH = os.path.join(DATA_DIR, "cleaned_data.csv")
-INDICATOR_DATA_PATH = os.path.join(DATA_DIR, "price_volume_indicators.csv")
-
+RAW_DATA_PATH = os.path.join(DATA_DIR, "price_volume_data.csv")
+CLEANED_DATA_PATH = os.path.join(DATA_DIR, "cleaned_price_volume_data.csv")
+INDICATOR_DATA_PATH = os.path.join(DATA_DIR, "price_volume_indicators_data.csv")
 
 # --- 2. THAM SỐ DỮ LIỆU ---
 tickers = [
@@ -66,3 +65,13 @@ initial_capital = 100000
 transaction_cost = 0.001
 train_end = '2020-12-31'
 val_end = '2023-12-31'
+
+# --- 4. KHÔNG GIAN THAM SỐ ---
+momentum_params = {
+    'threshold': [0.01, 0.02, 0.03, 0.04, 0.05, 0.06, 0.07, 0.08, 0.09, 0.1],
+    'window': [20, 50, 100, 200]  
+}
+mean_reversion_params = {
+    'window': [20, 50, 100, 200],
+    'std_dev': [1, 1.5, 2, 2.5, 3]
+}
