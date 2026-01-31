@@ -13,7 +13,7 @@ class MeanReversionStrategy:
         MEAN REVERSION (BOLLINGER BANDS):
         - Long (1): khi giá cắt lên từ phía dưới dải Lower Band
         - Short (-1): khi giá cắt xuống từ phía trên dải Upper Band
-        - Giữ vị thế (0) trong các trường hợp còn lại
+        - Đóng vị thế (0): khi giá quay về cắt đường SMA
         """
         adj_close = self.df['Adj Close']
         
@@ -25,13 +25,16 @@ class MeanReversionStrategy:
 
         prev_adj_close = adj_close.shift(1)
         
-        # Create buy/sell signals based on crossovers
-        buy_signal = (prev_adj_close < lower_band) & (adj_close > lower_band)
-        sell_signal = (prev_adj_close > upper_band) & (adj_close < upper_band)
-        
+        # Create signals
         signals = pd.DataFrame(np.nan, index=adj_close.index, columns=adj_close.columns)
-        signals[buy_signal] = 1
-        signals[sell_signal] = -1
+        
+        signals[(prev_adj_close < lower_band) & (adj_close > lower_band)] = 1
+        signals[(prev_adj_close > rolling_mean) & (adj_close < rolling_mean)] = -1
+        
+        cross_mean_up = (prev_adj_close < rolling_mean) & (adj_close >= rolling_mean)
+        cross_mean_down = (prev_adj_close > rolling_mean) & (adj_close <= rolling_mean)
+        signals[cross_mean_up | cross_mean_down] = 0
+        
         signals = signals.ffill().fillna(0)
         
         signals_df = pd.DataFrame(signals, index=self.df.index, columns=self.tickers)
