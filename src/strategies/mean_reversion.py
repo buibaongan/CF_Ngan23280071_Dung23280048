@@ -29,7 +29,7 @@ class MeanReversionStrategy:
         signals = pd.DataFrame(np.nan, index=adj_close.index, columns=adj_close.columns)
         
         signals[(prev_adj_close < lower_band) & (adj_close > lower_band)] = 1
-        signals[(prev_adj_close > rolling_mean) & (adj_close < rolling_mean)] = -1
+        signals[(prev_adj_close > upper_band) & (adj_close < upper_band)] = -1
         
         cross_mean_up = (prev_adj_close < rolling_mean) & (adj_close >= rolling_mean)
         cross_mean_down = (prev_adj_close > rolling_mean) & (adj_close <= rolling_mean)
