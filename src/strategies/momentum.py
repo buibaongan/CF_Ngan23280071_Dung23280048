@@ -13,7 +13,7 @@ class MomentumStrategy:
         Logic: 
             Long (1):    Giá > SMA * (1 + threshold)
             Short (-1):  Giá < SMA * (1 - threshold)
-            Đóng vị thế (0): Khi gãy xu hướng (giá quay đầu cắt nang SMA)
+            Đóng vị thế (0): Khi gãy xu hướng (giá quay đầu cắt ngang SMA)
         """
         adj_close = self.df['Adj Close']
         sma = adj_close.rolling(window=self.window).mean()
