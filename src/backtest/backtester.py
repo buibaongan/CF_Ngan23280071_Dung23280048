@@ -55,7 +55,6 @@ class Backtester:
             "Total Return": f"{equity.iloc[-1]/self.initial_capital - 1:.2%}",
             "Sharpe Ratio": round(sharpe, 2),
             "Max Drawdown": f"{drawdown:.2%}",
-            "Final Capital": f"${equity.iloc[-1]:,.0f}"
         }
 
     def run_and_evaluate(self, data, strategy_cls, label, **params):
