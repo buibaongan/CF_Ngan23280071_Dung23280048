@@ -14,37 +14,48 @@ class Backtester:
         test_data = self.df.loc[val_end:]
         return train_data, val_data, test_data
 
-    def run_backtest(self, data, signals):
-        # 1. Đồng bộ dữ liệu & Index
+    def run_backtest_with_weights(self, weights):
+        """
+        Chạy Backtest dựa trên trọng số (weights).
+        """
+        # 1. Đồng bộ Index
+        common_idx = self.df.index.intersection(weights.index)
+        log_returns = self.df.loc[common_idx, "Log Return"]
+        simple_return = np.exp(log_returns) - 1
+        
+        # 2. Xử lý Trọng số (Reindex & Fillna)
+        w = weights.loc[common_idx].reindex(columns=log_returns.columns).fillna(0)
+        shifted_w = w.shift(1).fillna(0)
+        
+        # 3. Tính toán
+        gross_return = (shifted_w * simple_return).sum(axis=1)
+        turnover = shifted_w.diff().abs().sum(axis=1)
+        cost = turnover * self.cost
+        
+        # 5. Equity Curve
+        equity = (1 + gross_return - cost).cumprod() * self.initial_capital
+        
+        return equity
+    
+    
+    def run_backtest_with_signals(self, data, signals):
+        """
+        Chạy Backtest dựa trên signals.
+        """
+        # 1. Đồng bộ dữ liệu
         if isinstance(signals.columns, pd.MultiIndex):
             signals.columns = signals.columns.get_level_values(-1)
-
         common_idx = data.index.intersection(signals.index)
-        log_returns = data.loc[common_idx, "Log Return"]
+        signals = signals.loc[common_idx].reindex(columns=data['Adj Close'].columns).ffill().fillna(0)
 
-        # 2. Xử lý vị thế (Forward fill & Lọc mã hủy niêm yết)
-        pos = signals.loc[common_idx].reindex(columns=log_returns.columns).ffill().fillna(0)
-        simple_return = np.exp(log_returns) - 1
-        pos = pos.where(~simple_return.isna(), 0)
-
-        # 3. Tính toán Lợi nhuận và chi phí
-        shifted_pos = pos.shift(1).fillna(0) 
-        active_pos = shifted_pos.abs().sum(axis=1).replace(0, np.nan)
+        # 2. CHUYỂN ĐỔI SIGNALS -> WEIGHTS (Equal Weighting)
+        active_pos = signals.abs().sum(axis=1).replace(0, np.nan)
+        weights = signals.div(active_pos, axis=0).fillna(0)
         
-        # Gross Return
-        gross_return = (shifted_pos * simple_return).sum(axis=1) / active_pos
-        gross_return = gross_return.fillna(0)
-
-        # Transaction cost
-        turnover = pos.diff().abs().sum(axis=1)
-        cost = (turnover / active_pos).fillna(0) * self.cost
-
-        # 4. Equity Curve
-        equity = (1 + gross_return - cost).cumprod() * self.initial_capital
-        return equity
+        return self.run_backtest_with_weights(weights)
 
     def evaluate(self, equity):
-        """Tính các chỉ số đánh giá (Sharpe, Drawdown)."""
+        """Tính các chỉ số đánh giá (Sharpe Ratio, Drawdown)."""
         ret = equity.pct_change().dropna()
         sharpe = (ret.mean() / ret.std() * np.sqrt(252)) if ret.std() > 0 else 0
         
@@ -69,7 +80,7 @@ class Backtester:
 
     def optimize_grid_search(self, data, strategy_cls, param_grid):
         """
-        Tối ưu hóa ĐA CHIẾN LƯỢC - ĐA THAM SỐ.
+        Tối ưu tham số.
         """
         results = []
         
