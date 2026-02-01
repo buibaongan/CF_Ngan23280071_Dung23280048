@@ -1,13 +1,6 @@
 import numpy as np
 import pandas as pd
 
-class AlphaCombiner:
-    def combine(self, signal_list):
-        sig1, sig2 = signal_list
-        combined = np.where(np.sign(sig1) == np.sign(sig2), (sig1 + sig2)/2, 0)
-        return pd.DataFrame(combined, index=sig1.index, columns=sig1.columns)
-    
-
 class Portfolio:
     def __init__(self, signals, returns, max_weight=0.1):
         self.max_weight = max_weight
@@ -36,7 +29,7 @@ class Portfolio:
         w = w.clip(lower=-self.max_weight, upper=self.max_weight)
 
         # Re-scale after cap
-        abs_sum = w.abs().sum(axis=1)
+        abs_sum = w.abs().sum(axis=1).replace(0, np.nan)
         w = w.div(abs_sum, axis=0).fillna(0)
         self.weights = w
         return w
@@ -59,8 +52,7 @@ class Portfolio:
     
 
     def compute_benchmark(self):
-        simple_returns = np.exp(self.returns) - 1
-        benchmark_returns = simple_returns.mean(axis=1)
+        benchmark_returns = self.returns.mean(axis=1)
         benchmark_curve = (1 + benchmark_returns).cumprod()
         return benchmark_returns, benchmark_curve
 
