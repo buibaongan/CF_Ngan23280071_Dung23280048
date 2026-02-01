@@ -1,6 +1,7 @@
 import pandas as pd
 import numpy as np
 import itertools 
+import matplotlib.pyplot as plt
 class Backtester:
     def __init__(self, df, initial_capital=100000, transaction_cost=0.001):
         self.df = df
@@ -120,3 +121,13 @@ class Backtester:
         
         # Trả về bảng kết quả sắp xếp theo Sharpe
         return pd.DataFrame(results).sort_values(by='Sharpe Ratio', ascending=False)
+    
+    def plot_rolling_sharpe(self, equity, window=252):
+        ret = equity.pct_change().dropna()
+        # Tính Sharpe lăn (Rolling)
+        rolling_sharpe = (ret.rolling(window).mean() / ret.rolling(window).std()) * np.sqrt(252)
+        
+        rolling_sharpe.plot(title=f"Rolling {window}-day Sharpe Ratio")
+        plt.axhline(rolling_sharpe.mean(), color='r', linestyle='--', label='Average')
+        plt.legend()
+        plt.show()
