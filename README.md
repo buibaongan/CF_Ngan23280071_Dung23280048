@@ -20,13 +20,23 @@ Dữ liệu được quản lý dưới dạng Multi-Index DataFrame để xử 
 ## 3. Cấu trúc 
 ```
 project/
-├── market_data.py           # Tải và lưu trữ dữ liệu từ Yahoo Finance
-├── data_processor.py        # Tiền xử lý, làm sạch dữ liệu và xử lý nhiễu
-├── calculate_indicators.py  # Tính toán các chỉ số kỹ thuật
-├── trading_strategy.py      # Chiến thuật giao dịch: Momentum, Mean Reversion
-├── plot.py                  # Trực quan hóa 
-├── scripts-Final.ipynb      # File thực thi tổng hợp (Main Workflow)
-└── README.md  
+├── src/
+│   ├── data/
+│   │   ├── data_loader.py          # Tải và lưu trữ dữ liệu từ Yahoo Finance.
+│   │   └── data_processor.py       # Tiền xử lý và làm sạch dữ liệu.
+│   ├── features/
+│   │   └── calculate_indicators.py # Tính toán các chỉ số kỹ thuật.
+│   ├── strategies/
+│   │   ├── momentum.py             # Momentum Strategy.
+│   │   └── mean_reversion.py       # Mean-Reversion Strategy.
+│   ├── backtest/
+│   │   ├── backtester.py           # Chạy kiểm thử và đánh giá.
+│   │   └── visualizer.py           # Trực quan hóa kết quả.
+│   └── portfolio/
+│       └── portfolio_creater.py    # Danh mục đầu tư.
+├── plot.py                         # Các hàm hỗ trợ vẽ biểu đồ.
+├── config.py
+└── README.md                    
 ```                  
 ## 4. Hướng dẫn cài đặt
 ```
@@ -35,4 +45,4 @@ python --version
 python -m venv venv
 ```
 ## 5. Hướng dẫn chạy
-_Chạy trên file scripts-Final.ipynb để theo dõi luồng xử lý._
+_Chạy trên file main.ipynb để theo dõi luồng xử lý._
