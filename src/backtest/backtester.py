@@ -18,7 +18,10 @@ class Backtester:
         """
         Chạy Backtest dựa trên trọng số (weights).
         """
-        # 1. Đồng bộ Index
+        # 1. Đồng bộ dữ liệu Index
+        if isinstance(weights.columns, pd.MultiIndex):
+            weights.columns = weights.columns.get_level_values(-1)
+            
         common_idx = self.df.index.intersection(weights.index)
         log_returns = self.df.loc[common_idx, "Log Return"]
         simple_return = np.exp(log_returns) - 1
@@ -38,26 +41,41 @@ class Backtester:
         return equity
     
     
-    def run_backtest_with_signals(self, data, signals):
-        """
-        Chạy Backtest dựa trên signals.
-        """
-        # 1. Đồng bộ dữ liệu
+    def run_backtest(self, data, signals):
+        # 1. Đồng bộ dữ liệu & Index
         if isinstance(signals.columns, pd.MultiIndex):
             signals.columns = signals.columns.get_level_values(-1)
+
         common_idx = data.index.intersection(signals.index)
-        signals = signals.loc[common_idx].reindex(columns=data['Adj Close'].columns).ffill().fillna(0)
+        log_returns = data.loc[common_idx, "Log Return"]
 
-        # 2. CHUYỂN ĐỔI SIGNALS -> WEIGHTS (Equal Weighting)
-        active_pos = signals.abs().sum(axis=1).replace(0, np.nan)
-        weights = signals.div(active_pos, axis=0).fillna(0)
-        
-        return self.run_backtest_with_weights(weights)
+        # 2. Xử lý vị thế (Forward fill & Lọc mã hủy niêm yết)
+        pos = signals.loc[common_idx].reindex(columns=log_returns.columns).ffill().fillna(0)
+        simple_return = np.exp(log_returns) - 1
+        pos = pos.where(~simple_return.isna(), 0)
 
-    def evaluate(self, equity):
+        # 3. Tính toán Lợi nhuận và chi phí
+        shifted_pos = pos.shift(1).fillna(0) 
+        active_pos = shifted_pos.abs().sum(axis=1).replace(0, np.nan)
+
+        # Gross Return
+        gross_return = (shifted_pos * simple_return).sum(axis=1) / active_pos
+        gross_return = gross_return.fillna(0)
+
+        # Transaction cost
+        turnover = pos.diff().abs().sum(axis=1)
+        cost = (turnover / active_pos).fillna(0) * self.cost
+
+        # 4. Equity Curve
+        equity = (1 + gross_return - cost).cumprod() * self.initial_capital
+        return equity
+
+    def evaluate(self, equity, risk_free_rate=0):
         """Tính các chỉ số đánh giá (Sharpe Ratio, Drawdown)."""
         ret = equity.pct_change().dropna()
-        sharpe = (ret.mean() / ret.std() * np.sqrt(252)) if ret.std() > 0 else 0
+        excess_ret = ret - (risk_free_rate / 252)
+        std = excess_ret.std()
+        sharpe = (excess_ret.mean() / std * np.sqrt(252)) if std > 0 else 0
         
         peak = equity.cummax()
         drawdown = ((equity - peak) / peak).min()

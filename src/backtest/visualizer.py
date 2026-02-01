@@ -125,12 +125,14 @@ class Visualizer:
         plt.plot(rolling_sharpe.index, rolling_sharpe, label=f"Rolling Sharpe ({window} days)", color='#e67e22', linewidth=1.5)
         
         # CÁC ĐƯỜNG THAM CHIẾU
+        plt.axhline(risk_free_rate, color='firebrick', linewidth=2, linestyle='--', 
+                    label=f"Risk-Free Performance (Rf={risk_free_rate:.1%})")
         
-        plt.axhline(0, color='black', linewidth=1.5)                        
-        plt.axhline(0.5, color='gray', linestyle=':', alpha=0.8, label="Market Avg (~0.5)")                
-        plt.axhline(1.0, color='green', linestyle='--', alpha=0.8, label="Institutional (>1.0)")   
-        plt.axhline(2.0, color='gold', linestyle='--', alpha=0.8, label="Top Tier (>2.0)")                   
-        plt.axhline(3.0, color='red', linestyle='-.', alpha=0.6, label="Anomaly (>3.0)")    
+        # plt.axhline(0, color='black', linewidth=1.5)                        
+        # plt.axhline(0.5, color='gray', linestyle=':', alpha=0.8, label="Market Avg (~0.5)")                
+        # plt.axhline(1.0, color='green', linestyle='--', alpha=0.8, label="Institutional (>1.0)")   
+        # plt.axhline(2.0, color='gold', linestyle='--', alpha=0.8, label="Top Tier (>2.0)")                   
+        # plt.axhline(3.0, color='red', linestyle='-.', alpha=0.6, label="Anomaly (>3.0)")    
         
         plt.ylim(bottom=max(-5, rolling_sharpe.min()), top=min(6, rolling_sharpe.max()))
         plt.title("Rolling Sharpe Ratio (Annualized)", fontsize=14, fontweight='bold')
